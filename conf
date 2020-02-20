@@ -9,8 +9,8 @@
 	step2: launch_sql.sh step2		# a comment
 # step 3: dksdjs			# not this one
 		final_step:final_step.sh -p blabla
-- dependencies:   # format is "alias:dependency1,dependency2"
+- dependencies:   # format is "alias:dependency1 dependency2"
         backup
  step1 : backup
    step2 : backup			# a comment
-final_step : step1, step2
+final_step : step1 step2

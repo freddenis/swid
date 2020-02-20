@@ -9,7 +9,9 @@ cat ${CONF} |	grep -v "^#" 		|	sed 's/^-/\n-/' 	|	sed 's/#.*$//g'		|\
 		sed 's/\t//g'		|	sed 's/^ *//'		|	sed 's/ *: */:/'	|\
 		sed 's/ *$//g'		|\
 awk '   BEGIN\
-	{	FS = ":"	;
+	{	   FS = ":"	;
+		first = 1	;
+		end_tag = "the_end" systime()		;	# To avoid another alias named like this one
 	}
 	{	# Names
 		if ($1 ~ /^- names/)
@@ -26,17 +28,27 @@ awk '   BEGIN\
 		# Dependencies
 		if ($1 ~ /^- dependencies/)
 		{	#print $1			;
+			if (first)
+			{
+				printf("%s\n", "done: "end_tag)
+				first = 0		;
+			}
 			while (getline)
 			{	
 				if ($1 ~ /^$/)
 				{	break		;
 				}
-				print $0		;
+				if ($0 !~ /:/)			# If no dependency, we may not have a ":" after the alias
+				{	$0 = $0":"	;
+				}
+				printf("%s\n", $0)	;
+				printf("\t%s\n", tab_names[$1])	;
 			}
 		}
 	}
 	END\
 	{	
+		printf("%s:%s\n", end_tag, $1)		;
 	}
     '
 

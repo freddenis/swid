@@ -1,14 +1,12 @@
 - config:        # format is "config:value"
-	 begin: mailx -s "done" people@company.company
-	   end: echo "done"
-	during: mailx -s $STEP done people@company.company
-	 email: people@company.com
+on_success: echo "all good" fred.denis3@gmai.com
+on_failure: echo "it failed !!" fred.denis3@gmai.com
 - names:         # format is "alias:command_to_execute"
-	backup: backup.sh
-	step1 : launch_sql.sh step1
-	step2: launch_sql.sh step2		# a comment
+	backup: ~/swid/a.sh backup
+	step1 : ~/swid/a.sh step1
+	step2: ~/swid/a.sh step2		# a comment
 # step 3: dksdjs			# not this one
-		final_step:final_step.sh -p blabla
+		final_step:~/swid/a.sh -p blabla
 - dependencies:   # format is "alias:dependency1 dependency2"
         backup
  step1 : backup

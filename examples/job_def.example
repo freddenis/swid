@@ -3,14 +3,14 @@
 	on_failure	:	echo "oh no, it failed !!"
 
 - names:         								# Format is "alias:command_to_execute"
-	start		:	~/swid/examples/Isleep.sh 1
-	do_stuff1	:	~/swid/examples/Isleep.sh 2
-	do_stuff2	:	~/swid/examples/Isleep.sh 6			# This is a comment
-	do_stuff3	:	~/swid/examples/Isleep.sh 4
-	do_stuff4	:	~/swid/examples/Isleep.sh 8
-	do_stuff5	:	~/swid/examples/Isleep.sh 3
-#	do_stuff6	:	~/swid/examples/Isleep.sh 14			# This wont be executed as it is commented out
-	end:	~/swid/examples/Isleep.sh 1
+	start		:	~/swid/examples/ISleep.sh 1
+	do_stuff1	:	~/swid/examples/ISleep.sh 2
+	do_stuff2	:	~/swid/examples/ISleep.sh 6			# This is a comment
+	do_stuff3	:	~/swid/examples/ISleep.sh 4
+	do_stuff4	:	~/swid/examples/ISleep.sh 8
+	do_stuff5	:	~/swid/examples/ISleep.sh 3
+#	do_stuff6	:	~/swid/examples/ISleep.sh 14			# This wont be executed as it is commented out
+	end:	~/swid/examples/ISleep.sh 1
 
 - dependencies:   								# Format is "alias:dependency1 dependency2"
 	start		:							# First step to execute, no dependency to anything

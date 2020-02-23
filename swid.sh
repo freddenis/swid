@@ -2,18 +2,40 @@
 # Fred Denis -- Feb 2020 -- fred.denis3@gmail.com -- https://unknowndba.blogspot.com
 #    swid.sh -- a Scheduler WIth Dependencies
 #
-
 #
-# Variables
+# Variables -- these one can be changed from the command line options
 #
- JOB_FILE="swid.jobs"					# Default job file
-RETENTION=31						# Number of days we keep the logs and tempfiles (they are purged after each execution)
+   JOB_FILE="job_def.swid"				# (-j) Default job dependencies definition file
+     DRYRUN=""						# (-d) Default dry run option -- show what it would do but dont do anything
+   PARALLEL=""						# (-p) Default parallelism degree (no value = maximum parallelism)
+  RETENTION=31						# (-r) Number of days we keep the logs and tempfiles (they are purged after each execution)
+OUTPUT_SYNC="target"					# The way the output is shown for parallel executions:
+							#	- target = output sorted by step executed 	   (-o)
+							# 	- none   = logs shown as soon as they are executed (-O)
+#
+# Variables for internal use, you may not want to change these ones
+#
        TS="date +%Y-%m-%d-%H:%M:%S"			# A timestamp
   TMP_DIR="./tmp"					# To save the makefiles
  MAKEFILE="${TMP_DIR}/makefile.tmp${RANDOM}$$"		# Makefile name
   LOG_DIR="./logs"					# For the logs
-  LOGFILE="${LOG_DIR}/${JOB_FILE}_${TS}"		# Logfile of the makefile execution
+  LOGFILE="${LOG_DIR}/${JOB_FILE}_$(${TS})"		# Logfile of the makefile execution
      TMP1="${TMP_DIR}/swidtempfile${RANDOM}$$.tmp" 	# A tempfile to save the cleaned up job file
+#
+# Command line variables
+#
+while getopts "j:dhr:p:oO" OPT; do
+        case ${OPT} in
+        j)    JOB_FILE="${OPTARG}"					;;
+	r)   RETENTION="${OPTARG}"					;;
+	d)	DRYRUN=" --dry-run "					;;
+	p)    PARALLEL="${OPTARG}"					;;
+	o) OUTPUT_SYNC="target"						;;
+	O) OUTPUT_SYNC="none"						;;
+        h)         usage                                                ;;
+        \?)        echo "Invalid option: -$OPTARG" >&2; usage           ;;
+        esac
+done
 #
 # Variables checks
 #
@@ -29,13 +51,38 @@ do
 		mkdir -p ${X}
 		if [ $? -eq 0 ]
 		then
-			printf "\033[1;36m%s\033[m\n" "INFO -- $($TS) -- ${X} has been successfully created."
+			printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- ${X} has been successfully created."		| tee -a ${LOGFILE}
 		else
-			printf "\033[1;31m%s\033[m\n" "ERROR -- $($TS) -- Could not create ${X}; cannot continue."
+			printf "\t\033[1;31m%s\033[m\n" "ERROR -- $($TS) -- Could not create ${X}; cannot continue."	| tee -a ${LOGFILE}
 			exit 124
 		fi
 	fi
 done
+if [[ ! -f ${JOB_FILE}  ]] 
+then
+	printf "\t\033[1;31m%s\033[m\n" "ERROR -- $($TS) -- Could not find the job dependencies definition file ${JOB_FILE}; please use the -j option to specify one; cannot continue."	| tee -a ${LOGFILE}
+	exit 125
+fi
+#
+# We show the parameters we will be using -- it maybe useful for troubleshooting
+#
+if [[ -n ${DRYRUN} ]] 
+then
+	printf "\t\033[1;32m%s\033[m\n" "INFO -- $($TS) -- This is a dryrun mode (-d option selected); nothing will be executed; only shown what would be executed." | tee -a ${LOGFILE}
+fi
+if [[ "$PARALLEL" = "0" ]]
+then
+        PARALLEL=1
+fi
+if [[ -z ${PARALLEL} ]] 
+then
+	show_parallel="Max"
+else
+	show_parallel=${PARALLEL}
+fi
+printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Job dependencies definition file: ${JOB_FILE} (can be changed with -j option)."		| tee -a ${LOGFILE}
+printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Parallel degree for execution: ${show_parallel} (can be changed with -p option)."		| tee -a ${LOGFILE}
+printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Retention days for tmp and log purge: ${RETENTION} (can be changed with -r option)."		| tee -a ${LOGFILE}
 #
 # Clean up the job file
 #
@@ -98,8 +145,13 @@ awk '   BEGIN\
 				{	$0 = $0":"				;
 				}
 				printf("%s\n", $0)				;		# Name of the step on the dependencies
-				#printf("\t%s -- %s\n", "@echo \"$(TS)\"", $0)	;		# Print a timestamp
-				printf("\t%s -- %s\n", "@echo STEP"cpt" -- \"$(TS)\"", $0)	;		# Print a timestamp
+
+				#printf("\t%s -- %s\n", "@echo good one STEP"cpt" -- \"$(TS)\"", $0)	;		# Print a timestamp
+				printf("\t%s", "@echo \"")			;
+			        printf("%s", COLOR_BEGIN TEAL)			;
+				printf("%s -- %s", "STEP"cpt" -- \"$(TS)\"", $0);
+			        printf("%s\n", COLOR_END"\"")			;
+
 				printf("\t%s", "@echo \"")			;
 				print_a_line()					;
 				printf("%s\n", "\"")				;
@@ -119,43 +171,53 @@ awk '   BEGIN\
 #
 if [[ ! -f ${MAKEFILE} ]] 
 then
-	printf "\t\033[1;31m%s\n" "There was an issue generating the makefile ${MAKEFILE}; cannot continue."
+	printf "\t\033[1;31m%s\n" "There was an issue generating the makefile ${MAKEFILE}; cannot continue."	| tee -a ${LOGFILE}
 	exit 234
 else
-	printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Makefile ${MAKEFILE} successfully generated."
+	printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Makefile ${MAKEFILE} successfully generated."	| tee -a ${LOGFILE}
 	sleep 3
-	printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Logfile ${LOGFILE} will be used."
+	printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Logfile ${LOGFILE} will be used."			| tee -a ${LOGFILE}
 fi
-make -f ${MAKEFILE} ${PARALLEL} | sed 's/^/\t/' | tee ${LOGFILE}
+#
+make -f ${MAKEFILE} -j ${PARALLEL} ${DRYRUN} -O${OUTPUT_SYNC} | tee -a ${LOGFILE} | sed 's/^/\t/' 
+#
 RET=${PIPESTATUS[0]}					# Make return code
 if [ ${RET} -eq 0 ]
 then
-	printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Execution of makefile ${MAKEFILE} was successful with no error."
+	printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Execution of makefile ${MAKEFILE} was successful with no error." | tee -a ${LOGFILE}
 	ON_SUCCESS=$(grep "^on_success" ${TMP1} | awk -F ":" '{print $2}')
 	if [[ -n ${ON_SUCCESS} ]]
 	then
-		printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- on_success action"
-		eval "${ON_SUCCESS}" | sed 's/^/\t/'
+		printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- on_success action"				| tee -a ${LOGFILE}
+		eval "${ON_SUCCESS}" | sed 's/^/\t/'								| tee -a ${LOGFILE}
 	fi
 else
-	printf "\t\033[1;31m%s\033[m\n" "ERROR -- $($TS) -- Got error $RET when executing the makefile ${MAKEFILE}."
+	printf "\t\033[1;31m%s\033[m\n" "ERROR -- $($TS) -- Got error $RET when executing the makefile ${MAKEFILE}." | tee -a ${LOGFILE}
 	ON_FAILURE=$(grep "^on_failure" ${TMP1} | awk -F ":" '{print $2}')
 	if [[ -n ${ON_FAILURE} ]]
 	then
-		printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- on_failure action"
-		eval "${ON_FAILURE}" | sed 's/^/\t/'
+		printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- on_failure action"				| tee -a ${LOGFILE}
+		eval "${ON_FAILURE}" | sed 's/^/\t/'								| tee -a ${LOGFILE}
 	fi
 fi
 #
-# Clean uo
+# Clean up
 #
 if [[ -f ${TMP1} ]]
 then
 	rm -f ${TMP1}
 fi
+find ${LOG_DIR} ${TMP_DIR} -type f -mtime ${RETENTION} -delete
+RET_FIND=$?
+if [ ${RET_FIND} -eq 0 ] 
+then
+	printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Successfully purged ${LOG_DIR} and ${TMP_DIR} with a ${RETENTION} days retention period."	| tee -a ${LOGFILE}
+else
+	printf "\t\033[1;31m%s\033[m\n" "ERROR -- $($TS) -- Got error ${RET_FIND} when purging ${LOG_DIR} and ${TMP_DIR} with a ${RETENTION} days retention period." | tee -a ${LOGFILE}
+fi
 #
 printf "\n"
-exit ${RET}
+exit ${RET}		# We exit with the makefile execution return code
 #
 #****************************************************************************************#
 #*			E N D        O F       S O U R C E 				*#

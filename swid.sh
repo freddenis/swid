@@ -12,6 +12,7 @@
 OUTPUT_SYNC="target"					# The way the output is shown for parallel executions:
 							#	- target = output sorted by step executed 	   (-o)
 							# 	- none   = logs shown as soon as they are executed (-O)
+  KEEPGOING=""						# (-k) Keep going as much as make can if an error happens	 
 #
 # Variables for internal use, you may not want to change these ones
 #
@@ -22,9 +23,69 @@ OUTPUT_SYNC="target"					# The way the output is shown for parallel executions:
   LOGFILE="${LOG_DIR}/${JOB_FILE}_$(${TS})"		# Logfile of the makefile execution
      TMP1="${TMP_DIR}/swidtempfile${RANDOM}$$.tmp" 	# A tempfile to save the cleaned up job file
 #
+# usage function
+#
+usage()
+{
+printf "\n\033[1;37m%-8s\033[m\n" "NAME"                ;
+cat << END
+        `basename $0` Schedule WIth Dependencies any job base on a simple job definition file
+END
+printf "\n\033[1;37m%-8s\033[m\n" "SYNOPSIS"            ;
+cat << END
+        $0 [-j] [-r] [-d] [-oO] [-p] [-k] [-h]
+END
+printf "\n\033[1;37m%-8s\033[m\n" "DESCRIPTION"         ;
+cat << END
+        - `basename $0` Schedule WIth Dependencies any job base on a simple job definition file
+	- Below a job definition file example:
+		- config:        								# Format is "config:value"
+			on_success	:	echo "all good !"
+			on_failure	:	echo "oh no, it failed !!"
+
+		- names:         								# Format is "alias:command_to_execute"
+			start		:	~/swid/examples/ISleep.sh 1
+			do_stuff1	:	~/swid/examples/ISleep.sh 2
+			do_stuff2	:	~/swid/examples/ISleep.sh 6			# This is a comment
+			do_stuff3	:	~/swid/examples/ISleep.sh 4
+			do_stuff4	:	~/swid/examples/ISleep.sh 8
+			do_stuff5	:	~/swid/examples/ISleep.sh 3
+		#	do_stuff6	:	~/swid/examples/ISleep.sh 14			# This wont be executed as it is commented out
+			end:	~/swid/examples/ISleep.sh 1
+
+		- dependencies:   								# Format is "alias:dependency1 dependency2"
+			start		:							# First step to execute, no dependency to anything
+			do_stuff1	: 	start						# Depends on "start"
+			do_stuff2	: 	start						# Depends on "start"
+			do_stuff3	: 	start						# Depends on "start"
+			do_stuff4	: 	start						# Depends on "start"
+			do_stuff5	: 	do_stuff1 do_stuff2 do_stuff3 do_stuff4		# Depends on do_stuff1, do_stuff2, do_stuff3 and do_stuff4
+			end: do_stuff5
+
+	- Jobs executions are stopped in case of error (already running jobs finish)
+	- The only requirement for `basename $0` to work is to have "make"installed on the system as it relies essentially on makefiles
+	  (yum install make or apt install make in the) less lilekly scenario make would not already be installed on your system
+END
+printf "\n\033[1;37m%-8s\033[m\n" "OPTIONS"             ;
+cat << END
+        -j      The path to a job dependencies definition file (see above for an example)
+        -p      Parallelism degree (default is maximum parallelism)
+        -d      Dry run mode, won't do anything, just show what would be done
+        -oO     When executing jobs in parallel, log lines can be interlaced between few parallel jobs:
+		- The -o option (which is the default) show the logs of a step only when it is done and then the logs are well sorted and not interlaced with other steps
+		- The -O option shows the logs as soon as they are generated leading to interlaced logs -- but you will see them faster than with -o
+        -r      `basename $0` is very nice and automatically purge the temfiles and logfiles he used keeping the retention days specified by this parameter
+	-k	- Keep going; tries to go as far as it can in case of error
+
+        -h      Shows this help
+
+END
+exit 555
+}
+#
 # Command line variables
 #
-while getopts "j:dhr:p:oO" OPT; do
+while getopts "j:dhr:p:oOk" OPT; do
         case ${OPT} in
         j)    JOB_FILE="${OPTARG}"					;;
 	r)   RETENTION="${OPTARG}"					;;
@@ -32,6 +93,7 @@ while getopts "j:dhr:p:oO" OPT; do
 	p)    PARALLEL="${OPTARG}"					;;
 	o) OUTPUT_SYNC="target"						;;
 	O) OUTPUT_SYNC="none"						;;
+	k)   KEEPGOING="-k"						;;
         h)         usage                                                ;;
         \?)        echo "Invalid option: -$OPTARG" >&2; usage           ;;
         esac
@@ -179,7 +241,7 @@ else
 	printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Logfile ${LOGFILE} will be used."			| tee -a ${LOGFILE}
 fi
 #
-make -f ${MAKEFILE} -j ${PARALLEL} ${DRYRUN} -O${OUTPUT_SYNC} | tee -a ${LOGFILE} | sed 's/^/\t/' 
+make -f ${MAKEFILE} -j ${PARALLEL} ${DRYRUN} ${KEEPGOING} -O${OUTPUT_SYNC} | tee -a ${LOGFILE} | sed 's/^/\t/' 
 #
 RET=${PIPESTATUS[0]}					# Make return code
 if [ ${RET} -eq 0 ]

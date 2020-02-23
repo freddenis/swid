@@ -1,6 +1,6 @@
 #!/bin/bash
 # Fred Denis -- Feb 2020 -- fred.denis3@gmail.com -- https://unknowndba.blogspot.com
-#    swid.sh -- a Scheduler WIth Dependencies
+#    swid.sh -- Schedule WIth Dependencies
 #
 #
 # Variables -- these one can be changed from the command line options
@@ -207,13 +207,17 @@ if [[ -f ${TMP1} ]]
 then
 	rm -f ${TMP1}
 fi
-find ${LOG_DIR} ${TMP_DIR} -type f -mtime ${RETENTION} -delete
+find ${LOG_DIR} ${TMP_DIR} -type f -mtime +${RETENTION} -delete
 RET_FIND=$?
 if [ ${RET_FIND} -eq 0 ] 
 then
 	printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Successfully purged ${LOG_DIR} and ${TMP_DIR} with a ${RETENTION} days retention period."	| tee -a ${LOGFILE}
 else
 	printf "\t\033[1;31m%s\033[m\n" "ERROR -- $($TS) -- Got error ${RET_FIND} when purging ${LOG_DIR} and ${TMP_DIR} with a ${RETENTION} days retention period." | tee -a ${LOGFILE}
+	if [ ${RET} -eq 0 ]
+	then
+		RET=${RET_FIND}
+	fi
 fi
 #
 printf "\n"

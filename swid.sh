@@ -1,6 +1,9 @@
 #!/bin/bash
 # Fred Denis -- Feb 2020 -- fred.denis3@gmail.com -- https://unknowndba.blogspot.com
+#
 #    swid.sh -- Schedule WIth Dependencies
+#
+# Please have a look at http://bit.ly/2v0HX6z for information on how swid works; alternatively, ./swid.sh -h is also a good way to start
 #
 #
 # Variables -- these one can be changed from the command line options
@@ -29,16 +32,16 @@ usage()
 {
 printf "\n\033[1;37m%-8s\033[m\n" "NAME"                ;
 cat << END
-        `basename $0` Schedule WIth Dependencies any job base on a simple job definition file
+        `basename $0` Schedule WIth Dependencies any job based on a simple job definition file
 END
 printf "\n\033[1;37m%-8s\033[m\n" "SYNOPSIS"            ;
 cat << END
-        $0 [-j] [-r] [-d] [-oO] [-p] [-k] [-h]
+        $0 [-j] [-r] [-d] [-o] [-O] [-p] [-k] [-h]
 END
 printf "\n\033[1;37m%-8s\033[m\n" "DESCRIPTION"         ;
 cat << END
-        - `basename $0` Schedule WIth Dependencies any job base on a simple job definition file
-	- Below a job definition file example:
+        - `basename $0` Schedules WIth Dependencies any job based on a simple job definition file
+	- Below a job definition file example (available in examples/job_def.swid):
 		- config:        								# Format is "config:value"
 			on_success	:	echo "all good !"
 			on_failure	:	echo "oh no, it failed !!"
@@ -51,7 +54,7 @@ cat << END
 			do_stuff4	:	~/swid/examples/ISleep.sh 8
 			do_stuff5	:	~/swid/examples/ISleep.sh 3
 		#	do_stuff6	:	~/swid/examples/ISleep.sh 14			# This wont be executed as it is commented out
-			end:	~/swid/examples/ISleep.sh 1
+			end		:	~/swid/examples/ISleep.sh 1
 
 		- dependencies:   								# Format is "alias:dependency1 dependency2"
 			start		:							# First step to execute, no dependency to anything
@@ -60,21 +63,21 @@ cat << END
 			do_stuff3	: 	start						# Depends on "start"
 			do_stuff4	: 	start						# Depends on "start"
 			do_stuff5	: 	do_stuff1 do_stuff2 do_stuff3 do_stuff4		# Depends on do_stuff1, do_stuff2, do_stuff3 and do_stuff4
-			end: do_stuff5
+			end		:	do_stuff5
 
-	- Jobs executions are stopped in case of error (already running jobs finish)
-	- The only requirement for `basename $0` to work is to have "make"installed on the system as it relies essentially on makefiles
-	  (yum install make or apt install make in the) less lilekly scenario make would not already be installed on your system
+	- Jobs executions are stopped in case of error (already running jobs finish and the next ones wont be started -- except if -k is specified)
+	- The only requirement for `basename $0` to work is to have "make" installed on the system as it relies essentially on makefiles
+	  (yum install make or apt install make) in the less lilekly scenario "make" would not already be installed on your system
 END
 printf "\n\033[1;37m%-8s\033[m\n" "OPTIONS"             ;
 cat << END
-        -j      The path to a job dependencies definition file (see above for an example)
+        -j      The path to a job dependency definition file (see above for an example)
         -p      Parallelism degree (default is maximum parallelism)
         -d      Dry run mode, won't do anything, just show what would be done
         -oO     When executing jobs in parallel, log lines can be interlaced between few parallel jobs:
-		- The -o option (which is the default) show the logs of a step only when it is done and then the logs are well sorted and not interlaced with other steps
+		- The -o option (which is the default) shows the logs of a step only when it is done and then the logs are well sorted and not interlaced with other steps
 		- The -O option shows the logs as soon as they are generated leading to interlaced logs -- but you will see them faster than with -o
-        -r      `basename $0` is very nice and automatically purge the temfiles and logfiles he used keeping the retention days specified by this parameter
+        -r      `basename $0` is very nice and automatically purges the tempfiles and logfiles he used keeping the retention days specified by this parameter
 	-k	- Keep going; tries to go as far as it can in case of error
 
         -h      Shows this help

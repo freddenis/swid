@@ -4,7 +4,7 @@
 
 - names:         								# Format is "alias:command_to_execute"
 	start		:	~/swid/examples/ISleep.sh 1
-	do_stuff1	:	~/swid/examples/IdontSleep.sh 2
+	do_stuff1	:	~/swid/examples/ISleep.sh 2
 	do_stuff2	:	~/swid/examples/ISleep.sh 6			# This is a comment
 	do_stuff3	:	~/swid/examples/ISleep.sh 4
 	do_stuff4	:	~/swid/examples/ISleep.sh 8

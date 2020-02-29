@@ -6,7 +6,9 @@
 # Please have a look at http://bit.ly/2v0HX6z for information on how swid works; alternatively, ./swid.sh -h is also a good way to start
 #
 # History:
-# 20200229 - Make option -O only exists from GNU make 4 -- added a test on the version to avoid errors for those with make < 4
+# 20200301 - new -l and -t option to specifcy the log and tmp directories
+# 20200229 - make option -O only exists from GNU make 4 -- added a test on the version to avoid errors for those with make < 4
+#            make 4 has been released in 2013 so it should be widely available on any system
 # 20200224 - Initial Release
 #
 # Variables -- these one can be changed from the command line options
@@ -15,19 +17,16 @@
      DRYRUN=""						# (-d) Default dry run option -- show what it would do but dont do anything
    PARALLEL=""						# (-p) Default parallelism degree (no value = maximum parallelism)
   RETENTION=31						# (-r) Number of days we keep the logs and tempfiles (they are purged after each execution)
-OUTPUT_SYNC="-Otarget"					# The way the output is shown for parallel executions:
+OUTPUT_SYNC="-Otarget"					# (-o/-O) The way the output is shown for parallel executions:
 							#	- target = output sorted by step executed 	   (-o)
 							# 	- none   = logs shown as soon as they are executed (-O)
   KEEPGOING=""						# (-k) Keep going as much as make can if an error happens	 
+    TMP_DIR="./tmp"					# (-t) To save the makefiles
+    LOG_DIR="./logs"					# (-l) For the logs
 #
 # Variables for internal use, you may not want to change these ones
 #
        TS="date +%Y-%m-%d-%H:%M:%S"			# A timestamp
-  TMP_DIR="./tmp"					# To save the makefiles
- MAKEFILE="${TMP_DIR}/makefile.tmp${RANDOM}$$"		# Makefile name
-  LOG_DIR="./logs"					# For the logs
-  LOGFILE="${LOG_DIR}/${JOB_FILE}_$(${TS})"		# Logfile of the makefile execution
-     TMP1="${TMP_DIR}/swidtempfile${RANDOM}$$.tmp" 	# A tempfile to save the cleaned up job file
 #
 # usage function
 #
@@ -39,7 +38,7 @@ cat << END
 END
 printf "\n\033[1;37m%-8s\033[m\n" "SYNOPSIS"            ;
 cat << END
-        $0 [-j] [-r] [-d] [-o] [-O] [-p] [-k] [-h]
+        $0 [-j] [-r] [-d] [-o] [-O] [-p] [-k] [-l] [-t] [-h]
 END
 printf "\n\033[1;37m%-8s\033[m\n" "DESCRIPTION"         ;
 cat << END
@@ -82,6 +81,8 @@ cat << END
 		- The -O option shows the logs as soon as they are generated leading to interlaced logs -- but you will see them faster than with -o
         -r      `basename $0` is very nice and automatically purges the tempfiles and logfiles he used keeping the retention days specified by this parameter
 	-k	- Keep going; tries to go as far as it can in case of error
+	-l	Specific the log directory
+	-t	Specify the temporary files directory
 
         -h      Shows this help
 
@@ -91,7 +92,7 @@ exit 555
 #
 # Command line variables
 #
-while getopts "j:dhr:p:oOk" OPT; do
+while getopts "j:dhr:p:oOkl:t:" OPT; do
         case ${OPT} in
         j)    JOB_FILE="${OPTARG}"					;;
 	r)   RETENTION="${OPTARG}"					;;
@@ -100,6 +101,8 @@ while getopts "j:dhr:p:oOk" OPT; do
 	o) OUTPUT_SYNC="-Otarget"					;;
 	O) OUTPUT_SYNC="-Onone"						;;
 	k)   KEEPGOING="-k"						;;
+	t)     TMP_DIR="${OPTARG}"					;;
+	l)     LOG_DIR="${OPTARG}"					;;
         h)         usage                                                ;;
         \?)        echo "Invalid option: -$OPTARG" >&2; usage           ;;
         esac
@@ -112,7 +115,15 @@ then
 	printf "\n\t\033[1;31m%s\n\n" "ERROR -- make is needed on the system but cannot be found; please have it installed (yum install make or apt install make); cannot continue for now."
 	exit 123
 fi
-# Option -O only available for GNU make >= 4
+#
+# We can now build the names of the lofiles and tempfiles
+#
+ MAKEFILE="${TMP_DIR}/makefile.tmp${RANDOM}$$"		# Makefile name
+  LOGFILE="${LOG_DIR}/`basename ${JOB_FILE}`_$(${TS})"		# Logfile of the makefile execution
+     TMP1="${TMP_DIR}/swidtempfile${RANDOM}$$.tmp" 	# A tempfile to save the cleaned up job file
+#
+# make option -O only available for GNU make >= 4
+#
 MAKE_VERSION=$(make -v | head -1 | awk '{printf("%d", $NF)}')
 if (( MAKE_VERSION < 4 ))
 then
@@ -132,6 +143,9 @@ do
 		fi
 	fi
 done
+#
+# A job definition file is needed
+#
 if [[ ! -f ${JOB_FILE}  ]] 
 then
 	printf "\t\033[1;31m%s\033[m\n" "ERROR -- $($TS) -- Could not find the job dependencies definition file ${JOB_FILE}; please use the -j option to specify one; cannot continue."	| tee -a ${LOGFILE}
@@ -156,7 +170,7 @@ else
 fi
 printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Job dependencies definition file: ${JOB_FILE} (can be changed with -j option)."		| tee -a ${LOGFILE}
 printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Parallel degree for execution: ${show_parallel} (can be changed with -p option)."		| tee -a ${LOGFILE}
-printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Retention days for tmp and log purge: ${RETENTION} (can be changed with -r option)."		| tee -a ${LOGFILE}
+printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Retention days for ${TMP_DIR} and ${LOG_DIR} purge: ${RETENTION} (can be changed with -r option)." | tee -a ${LOGFILE}
 #
 # Clean up the job file
 #

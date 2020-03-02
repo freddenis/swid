@@ -6,6 +6,8 @@
 # Please have a look at http://bit.ly/2v0HX6z for information on how swid works; alternatively, ./swid.sh -h is also a good way to start
 #
 # History:
+# 20200302 - -u otion to remove color codes from the logfile; no ":" in the logfile name, I put "-" instead
+#	     also new -i option to ignore the errors and continue
 # 20200301 - new -l and -t option to specifcy the log and tmp directories
 # 20200229 - make option -O only exists from GNU make 4 -- added a test on the version to avoid errors for those with make < 4
 #            make 4 has been released in 2013 so it should be widely available on any system
@@ -23,10 +25,12 @@ OUTPUT_SYNC="-Otarget"					# (-o/-O) The way the output is shown for parallel ex
   KEEPGOING=""						# (-k) Keep going as much as make can if an error happens	 
     TMP_DIR="./tmp"					# (-t) To save the makefiles
     LOG_DIR="./logs"					# (-l) For the logs
+WITH_COLORS="Yes"					# (-u) Keep the colors in the logfile or not
+ IGNORE_ERR=""						# (-i) make ignore all the errors and continue
 #
 # Variables for internal use, you may not want to change these ones
 #
-       TS="date +%Y-%m-%d-%H:%M:%S"			# A timestamp
+       TS="date +%Y-%m-%d_%H-%M-%S"			# A timestamp
 #
 # usage function
 #
@@ -38,7 +42,7 @@ cat << END
 END
 printf "\n\033[1;37m%-8s\033[m\n" "SYNOPSIS"            ;
 cat << END
-        $0 [-j] [-r] [-d] [-o] [-O] [-p] [-k] [-l] [-t] [-h]
+        $0 [-j] [-r] [-d] [-o] [-O] [-p] [-k] [-l] [-t] [-u] [-i] [-h]
 END
 printf "\n\033[1;37m%-8s\033[m\n" "DESCRIPTION"         ;
 cat << END
@@ -83,6 +87,8 @@ cat << END
 	-k	- Keep going; tries to go as far as it can in case of error
 	-l	Specific the log directory
 	-t	Specify the temporary files directory
+	-u	Remove the color codes from the logfile
+	-i	Ignore the errors, show them as warning and continue
 
         -h      Shows this help
 
@@ -92,7 +98,7 @@ exit 555
 #
 # Command line variables
 #
-while getopts "j:dhr:p:oOkl:t:" OPT; do
+while getopts "j:dhr:p:oOkl:t:ui" OPT; do
         case ${OPT} in
         j)    JOB_FILE="${OPTARG}"					;;
 	r)   RETENTION="${OPTARG}"					;;
@@ -103,6 +109,8 @@ while getopts "j:dhr:p:oOkl:t:" OPT; do
 	k)   KEEPGOING="-k"						;;
 	t)     TMP_DIR="${OPTARG}"					;;
 	l)     LOG_DIR="${OPTARG}"					;;
+	u) WITH_COLORS="No"						;;
+	i)  IGNORE_ERR="-i"						;;
         h)         usage                                                ;;
         \?)        echo "Invalid option: -$OPTARG" >&2; usage           ;;
         esac
@@ -119,7 +127,7 @@ fi
 # We can now build the names of the lofiles and tempfiles
 #
  MAKEFILE="${TMP_DIR}/makefile.tmp${RANDOM}$$"		# Makefile name
-  LOGFILE="${LOG_DIR}/`basename ${JOB_FILE}`_$(${TS})"		# Logfile of the makefile execution
+  LOGFILE="${LOG_DIR}/`basename ${JOB_FILE}`_$(${TS})"	# Logfile of the makefile execution
      TMP1="${TMP_DIR}/swidtempfile${RANDOM}$$.tmp" 	# A tempfile to save the cleaned up job file
 #
 # make option -O only available for GNU make >= 4
@@ -168,9 +176,17 @@ then
 else
 	show_parallel=${PARALLEL}
 fi
-printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Job dependencies definition file: ${JOB_FILE} (can be changed with -j option)."		| tee -a ${LOGFILE}
-printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Parallel degree for execution: ${show_parallel} (can be changed with -p option)."		| tee -a ${LOGFILE}
-printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Retention days for ${TMP_DIR} and ${LOG_DIR} purge: ${RETENTION} (can be changed with -r option)." | tee -a ${LOGFILE}
+if [[ -z ${IGNORE_ERR} ]]
+then
+	SHOW_IGNORE_ERR="No"
+else
+	SHOW_IGNORE_ERR="Yes"
+fi
+printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- (-j) Job dependencies definition file	: ${JOB_FILE}"		| tee -a ${LOGFILE}
+printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- (-p) Parallel degree for execution	: ${show_parallel}"		| tee -a ${LOGFILE}
+printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- (-r) Retention days for ${TMP_DIR} and ${LOG_DIR} purge: ${RETENTION}" | tee -a ${LOGFILE}
+printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- (-i) Ignore the errors and continue	: ${SHOW_IGNORE_ERR}" 		| tee -a ${LOGFILE}
+printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- (-u) Colors code in the logfile		: ${WITH_COLORS}"	| tee -a ${LOGFILE}
 #
 # Clean up the job file
 #
@@ -267,7 +283,7 @@ else
 	printf "\t\033[1;36m%s\033[m\n" "INFO -- $($TS) -- Logfile ${LOGFILE} will be used."			| tee -a ${LOGFILE}
 fi
 #
-make -f ${MAKEFILE} -j ${PARALLEL} ${DRYRUN} ${KEEPGOING} ${OUTPUT_SYNC} | tee -a ${LOGFILE} | sed 's/^/\t/' 
+make -f ${MAKEFILE} -j ${PARALLEL} ${DRYRUN} ${KEEPGOING} ${OUTPUT_SYNC} ${IGNORE_ERR} | tee -a ${LOGFILE} | sed 's/^/\t/' 
 #
 RET=${PIPESTATUS[0]}					# Make return code
 if [ ${RET} -eq 0 ]
@@ -306,6 +322,13 @@ else
 	then
 		RET=${RET_FIND}
 	fi
+fi
+#
+# Remove the colors from the logfile
+#
+if [[ "${WITH_COLORS}" = "No" ]] 
+then
+	sed -ri "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g" ${LOGFILE}
 fi
 #
 printf "\n"

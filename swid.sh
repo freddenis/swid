@@ -295,7 +295,7 @@ if [[ -f ${TMP1} ]]
 then
 	rm -f ${TMP1}
 fi
-find ${LOG_DIR} ${TMP_DIR} -type f -mtime +${RETENTION} -delete
+find ${LOG_DIR} ${TMP_DIR} -type f -mtime ${RETENTION} -delete
 RET_FIND=$?
 if [ ${RET_FIND} -eq 0 ] 
 then
